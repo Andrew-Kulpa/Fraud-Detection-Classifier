@@ -13,8 +13,20 @@ print('Total Entries:', class_count[0]+class_count[1])
 print('Class 0:', class_count[0])
 print('Class 1:', class_count[1])
 print('Proportion:', round(class_count[0] / class_count[1], 2), ': 1')
-figure = class_count.plot(kind='bar', title='Count (Class)').get_figure()
-figure.savefig('class_histogram.pdf')
+font = {
+	'family': 'serif',
+	'color':  'darkred',
+	'weight': 'normal',
+	'size': 16,
+}
+figure = class_count.plot(kind='bar', title='Transaction Classes')
+figure.set_xlabel("Fraud Classification", fontdict=font)
+figure.set_ylabel("Count", fontdict=font)
+rects = figure.patches
+for i, label in enumerate(class_count):
+	class_count.apply(lambda x: figure.text(i - 0.07, label/class_count[i]+100,class_count[i]))
+
+figure.get_figure().savefig('class_histogram.pdf', bbox_inches = "tight")
 
 X = data.drop(['Class', 'Time'], axis='columns')
 y = data.Class
