@@ -15,9 +15,9 @@ print('Class 1:', class_count[1])
 print('Proportion:', round(class_count[0] / class_count[1], 2), ': 1')
 font = {
 	'family': 'serif',
-	'color':  'darkred',
+	'color':  'black',
 	'weight': 'normal',
-	'size': 16,
+	'size': 12,
 }
 figure = class_count.plot(kind='bar', title='Transaction Classes')
 figure.set_xlabel("Fraud Classification", fontdict=font)
