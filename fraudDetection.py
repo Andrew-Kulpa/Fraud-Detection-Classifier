@@ -51,7 +51,7 @@ test_encoded_labels = np.array(pd.get_dummies(testY))
 # Parameters
 useAdamOptimizer = True
 initial_learning_rate = 0.08
-training_epochs = 1000
+training_epochs = 10000
 decay_steps = 100
 display_epoch = 50
 decay_base_rate = 0.96
@@ -96,7 +96,7 @@ global_step = tf.Variable(0, trainable=False) # https://www.tensorflow.org/api_d
 learning_rate = tf.train.exponential_decay(initial_learning_rate, global_step, decay_steps, decay_base_rate, staircase=True)
 if(useAdamOptimizer):
 	optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=Output))
+	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
 	train_op = optimizer.minimize(loss_op, global_step = global_step)
 else:
 	optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
@@ -130,12 +130,18 @@ with tf.Session() as sess:
 		_, cost = sess.run([train_op, loss_op], feed_dict={Input: trainX, Output: train_encoded_labels})
 		# Display results for each epoch cycle
 		if epoch % display_epoch == 0:
-			# pred = tf.nn.softmax(logits)
-			# acc = tf.metrics.mean_per_class_accuracy(tf.argmax(Output, 1),tf.argmax(pred, 1), num_classes=2)
-			# sess.run(acc, feed_dict={Input: testX, Output: test_encoded_labels})
-			# print(acc)
-
-
+			pred = tf.nn.softmax(logits)
+			acc = tf.metrics.mean_per_class_accuracy(tf.argmax(Output, 1),tf.argmax(pred, 1), num_classes=2)
+			sess.run(tf.local_variables_initializer())
+			acc_matrix = sess.run(acc, feed_dict={Input: testX, Output: test_encoded_labels})
+			true_negative = acc_matrix[1].tolist()[0][0]
+			false_positive = acc_matrix[1].tolist()[0][1]
+			true_positive = acc_matrix[1].tolist()[1][0]
+			false_negative = acc_matrix[1].tolist()[1][1]
+			print('true_negative: %d' % (true_negative))
+			print('false_positive: %d' % (false_positive))
+			print('true_positive: %d' % (true_positive))
+			print('false_negative: %d' % (false_negative))
 
 			lr = sess.run(optimizer._lr) if useAdamOptimizer else sess.run(optimizer._learning_rate)
 			print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(cost), "learning_rate={:.5f}".format(lr))
@@ -145,7 +151,7 @@ with tf.Session() as sess:
 			# Calculate the accuracy of the model
 			accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
 			accuracy_amt = accuracy.eval({Input: testX, Output: test_encoded_labels})
-			print("Test Data Accuracy:", accuracy_amt)
+			print("Test Data Accuracy:", accuracy_amt, "\n")
 			cost_data.append([epoch, cost])
 			accuracy_data.append([epoch, accuracy_amt])
 	print("Training done!")
