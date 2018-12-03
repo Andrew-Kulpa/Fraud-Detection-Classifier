@@ -29,9 +29,10 @@ test_encoded_labels = np.array(pd.get_dummies(testY))
 ########################################################
 print("Defining the model...")
 # Parameters
-useAdamOptimizer = False
+useAdamOptimizer = True
+useClassWeight = True
 initial_learning_rate = 0.08
-training_epochs = 1001
+training_epochs = 10001
 decay_steps = 50
 display_epoch = 20
 decay_base_rate = 0.96
@@ -75,13 +76,17 @@ logits = mlnn(Input)
 global_step = tf.Variable(0, trainable=False) # https://www.tensorflow.org/api_docs/python/tf/train/exponential_decay
 learning_rate = tf.train.exponential_decay(initial_learning_rate, global_step, decay_steps, decay_base_rate, staircase=True)
 if(useAdamOptimizer):
+	print("Running AdamOptimizer with learning_rate:", learning_rate)
 	optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
+	if(useClassWeight):
+		loss_op = tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(logits=logits, targets=Output, pos_weight=100))
+	else:
+		loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
 	train_op = optimizer.minimize(loss_op, global_step = global_step)
 else:
 	learning_rate *= 0.001 # hopefully prevent exploding costs
+	print("Running GradientDescentOptimizer with modified learning_rate:", learning_rate)
 	optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-	print("The gradient descent optimizer is currently working poorly.. if not at all. Just use the adam optimization method for now.")
 	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
 	grad_vars = optimizer.compute_gradients(loss_op)
 	grad = [x[0] for x in grad_vars]

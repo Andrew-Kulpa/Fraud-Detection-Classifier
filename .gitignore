@@ -105,3 +105,7 @@ venv.bak/
 
 # annoying mac file
 .DS_Store
+creditcard.csv
+cost_graph.pdf
+class_histogram.pdf
+accuracy_graph.pdf
