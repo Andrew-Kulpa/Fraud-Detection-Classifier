@@ -29,10 +29,10 @@ test_encoded_labels = np.array(pd.get_dummies(testY))
 ########################################################
 print("Defining the model...")
 # Parameters
-useAdamOptimizer = True
+useAdamOptimizer = False
 initial_learning_rate = 0.08
-training_epochs = 2001
-decay_steps = 25
+training_epochs = 1001
+decay_steps = 50
 display_epoch = 20
 decay_base_rate = 0.96
 
@@ -79,11 +79,10 @@ if(useAdamOptimizer):
 	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
 	train_op = optimizer.minimize(loss_op, global_step = global_step)
 else:
-	learning_rate *= 0.1 # hopefully prevent exploding costs
+	learning_rate *= 0.001 # hopefully prevent exploding costs
 	optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
 	print("The gradient descent optimizer is currently working poorly.. if not at all. Just use the adam optimization method for now.")
-	max_grad_norm = 100
-	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=logits, labels=Output))
+	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
 	grad_vars = optimizer.compute_gradients(loss_op)
 	grad = [x[0] for x in grad_vars]
 	variables = [x[1] for x in grad_vars]
@@ -110,6 +109,7 @@ with tf.Session() as sess:
 	for epoch in range(training_epochs):
 		# Backpropagation optimization and cost operation
 		_, cost = sess.run([train_op, loss_op], feed_dict={Input: trainX, Output: train_encoded_labels})
+		print(cost)
 		# Display results for each epoch cycle
 		if epoch % display_epoch == 0:
 			print("Epoch:", '%04d' % (epoch+1))
