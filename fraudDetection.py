@@ -6,31 +6,11 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 tf.logging.set_verbosity(tf.logging.INFO)
-#### https://github.com/openAGI/tefla/blob/master/tefla/core/base.py
-####
-
-def clip_grad_norms(self, gradients_to_variables, max_norm=5):
-	"""Clips the gradients by the given value.
-	Args:
-		gradients_to_variables: A list of gradient to variable pairs (tuples).
-		max_norm: the maximum norm value.
-	Returns:
-		A list of clipped gradient to variable pairs.
-	"""
-	grads_and_vars = []
-	for grad, var in gradients_to_variables:
-		if grad is not None:
-			if isinstance(grad, tf.IndexedSlices):
-				tmp = tf.clip_by_norm(grad.values, max_norm)
-				grad = tf.IndexedSlices(tmp, grad.indices, grad.dense_shape)
-			else:
-				grad = tf.clip_by_norm(grad, max_norm)
-		grads_and_vars.append((grad, var))
-	return grads_and_vars
 
 ########################################################
 ######                Read in Files               ######
 ########################################################
+print("Reading in files...")
 train_data_csv = 'creditcard_train.csv'
 test_data_csv = 'creditcard_test.csv'
 
@@ -47,11 +27,11 @@ test_encoded_labels = np.array(pd.get_dummies(testY))
 ########################################################
 ######                 Define Model               ######
 ########################################################
-
+print("Defining the model...")
 # Parameters
 useAdamOptimizer = True
 initial_learning_rate = 0.08
-training_epochs = 10000
+training_epochs = 51
 decay_steps = 100
 display_epoch = 50
 decay_base_rate = 0.96
@@ -99,6 +79,7 @@ if(useAdamOptimizer):
 	loss_op = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(logits=logits, labels=Output))
 	train_op = optimizer.minimize(loss_op, global_step = global_step)
 else:
+	learning_rate *= 0.1 # hopefully prevent exploding costs
 	optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
 	print("The gradient descent optimizer is currently working poorly.. if not at all. Just use the adam optimization method for now.")
 	max_grad_norm = 100
@@ -106,13 +87,12 @@ else:
 	grad_vars = optimizer.compute_gradients(loss_op)
 	grad = [x[0] for x in grad_vars]
 	variables = [x[1] for x in grad_vars]
-	grad, grad_norm = tf.clip_by_global_norm(grad, max_grad_norm)
 	train_op = optimizer.apply_gradients(zip(grad, variables), global_step=global_step)
 
-
+print("Initializing variables and data collection arrays...")
 # initialize data for plotting accuracy + cost
-cost_data = []
-accuracy_data = []
+training_accuracy_data = []
+testing_accuracy_data = []
 
 # Initializing the variables
 init = tf.global_variables_initializer()
@@ -120,6 +100,7 @@ false_positives = 0
 false_negatives = 0
 true_positives = 0
 true_negatives = 0
+print("Beginning training of the model...")
 with tf.Session() as sess:
 	sess.run(init)
 	
@@ -130,36 +111,44 @@ with tf.Session() as sess:
 		_, cost = sess.run([train_op, loss_op], feed_dict={Input: trainX, Output: train_encoded_labels})
 		# Display results for each epoch cycle
 		if epoch % display_epoch == 0:
+			print("Epoch:", '%04d' % (epoch+1))
 			pred = tf.nn.softmax(logits)
-			acc = tf.metrics.mean_per_class_accuracy(tf.argmax(Output, 1),tf.argmax(pred, 1), num_classes=2)
+			fp = tf.metrics.false_positives(tf.argmax(Output, 1),tf.argmax(pred, 1))
+			tp = tf.metrics.true_positives(tf.argmax(Output, 1),tf.argmax(pred, 1))
+			fn = tf.metrics.false_negatives(tf.argmax(Output, 1),tf.argmax(pred, 1))
+			tn = tf.metrics.true_negatives(tf.argmax(Output, 1),tf.argmax(pred, 1))
+			# acc = tf.metrics.mean_per_class_accuracy(tf.argmax(Output, 1),tf.argmax(pred, 1), num_classes=2)
 			sess.run(tf.local_variables_initializer())
-			acc_matrix = sess.run(acc, feed_dict={Input: testX, Output: test_encoded_labels})
-			true_negative = acc_matrix[1].tolist()[0][0]
-			false_positive = acc_matrix[1].tolist()[0][1]
-			true_positive = acc_matrix[1].tolist()[1][0]
-			false_negative = acc_matrix[1].tolist()[1][1]
-			print('true_negative: %d' % (true_negative))
-			print('false_positive: %d' % (false_positive))
-			print('true_positive: %d' % (true_positive))
-			print('false_negative: %d' % (false_negative))
+			metrics = sess.run([fp, tp, fn, tn], feed_dict={Input: testX, Output: test_encoded_labels})
+			print("\tTesting Confusion Metrics:")
+			print('\t\ttrue_negative: %d' % (metrics[3][0]))
+			print('\t\tfalse_positive: %d' % (metrics[0][0]))
+			print('\t\ttrue_positive: %d' % (metrics[1][0]))
+			print('\t\tfalse_negative: %d' % (metrics[2][0]))
 
 			lr = sess.run(optimizer._lr) if useAdamOptimizer else sess.run(optimizer._learning_rate)
-			print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(cost), "learning_rate={:.5f}".format(lr))
+			print("\ttraining_cost={:.9f}".format(cost), "learning_rate={:.5f}".format(lr))
 			# Apply softmax to logits
 			pred = tf.nn.softmax(logits)
 			correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Output, 1))
-			# Calculate the accuracy of the model
-			accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-			accuracy_amt = accuracy.eval({Input: testX, Output: test_encoded_labels})
-			print("Test Data Accuracy:", accuracy_amt, "\n")
-			cost_data.append([epoch, cost])
-			accuracy_data.append([epoch, accuracy_amt])
+			# Calculate the testing_accuracy of the model
+			testing_accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+			testing_accuracy_amt = testing_accuracy.eval({Input: testX, Output: test_encoded_labels})
+			print("\tTest Data Accuracy:", testing_accuracy_amt)
+			testing_accuracy_data.append([epoch, testing_accuracy_amt])
+			
+			# Calculate the training_accuracy of the model
+			training_accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+			training_accuracy_amt = training_accuracy.eval({Input: trainX, Output: train_encoded_labels})
+			print("\tTraining Data Accuracy:", training_accuracy_amt, "\n")
+			training_accuracy_data.append([epoch, training_accuracy_amt])
+			
 	print("Training done!")
-	# plot and save pdf for the data
-	cost_df = pd.DataFrame(data=cost_data,columns=['epoch','cost'])
-	cost_figure = cost_df.plot(x='epoch', y='cost', kind='line', title='Memorization Deficiency').get_figure()
-	cost_figure.savefig('cost_graph.pdf')
 
-	accuracy_df = pd.DataFrame(data=accuracy_data,columns=['epoch','accuracy'])
-	accuracy_figure = accuracy_df.plot(x='epoch', y='accuracy', kind='line', title='Generalization Accuracy').get_figure()
-	accuracy_figure.savefig('accuracy_graph.pdf')
+	training_accuracy_df = pd.DataFrame(data=training_accuracy_data,columns=['epoch','accuracy'])
+	training_accuracy_figure = training_accuracy_df.plot(x='epoch', y='accuracy', kind='line', title='Memorization Accuracy').get_figure()
+	training_accuracy_figure.savefig('training_accuracy_graph.pdf')
+
+	testing_accuracy_df = pd.DataFrame(data=testing_accuracy_data,columns=['epoch','accuracy'])
+	testing_accuracy_figure = testing_accuracy_df.plot(x='epoch', y='accuracy', kind='line', title='Generalization Accuracy').get_figure()
+	testing_accuracy_figure.savefig('testing_accuracy_graph.pdf')
