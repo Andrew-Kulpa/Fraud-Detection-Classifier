@@ -31,9 +31,9 @@ print("Defining the model...")
 # Parameters
 useAdamOptimizer = True
 initial_learning_rate = 0.08
-training_epochs = 51
-decay_steps = 100
-display_epoch = 50
+training_epochs = 2001
+decay_steps = 25
+display_epoch = 20
 decay_base_rate = 0.96
 
 # Network
@@ -93,6 +93,7 @@ print("Initializing variables and data collection arrays...")
 # initialize data for plotting accuracy + cost
 training_accuracy_data = []
 testing_accuracy_data = []
+cost_data = []
 
 # Initializing the variables
 init = tf.global_variables_initializer()
@@ -100,12 +101,12 @@ false_positives = 0
 false_negatives = 0
 true_positives = 0
 true_negatives = 0
-print("Beginning training of the model...")
+
 with tf.Session() as sess:
+	print("Beginning training of the model...")
 	sess.run(init)
-	
-	# print(tf.equal(tf.argmax(pred, 1), tf.argmax(Output, 1)).eval())# true_negatives = tf.equal(tf.equal(tf.argmax(pred, 1), tf.argmax(Output, 1)),tf.constant(0))
-	#training
+
+	# training
 	for epoch in range(training_epochs):
 		# Backpropagation optimization and cost operation
 		_, cost = sess.run([train_op, loss_op], feed_dict={Input: trainX, Output: train_encoded_labels})
@@ -138,17 +139,29 @@ with tf.Session() as sess:
 			testing_accuracy_data.append([epoch, testing_accuracy_amt])
 			
 			# Calculate the training_accuracy of the model
-			training_accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+			pred1 = tf.nn.softmax(logits)
+			correct_prediction1 = tf.equal(tf.argmax(pred1, 1), tf.argmax(Output, 1))
+			training_accuracy = tf.reduce_mean(tf.cast(correct_prediction1, "float"))
 			training_accuracy_amt = training_accuracy.eval({Input: trainX, Output: train_encoded_labels})
 			print("\tTraining Data Accuracy:", training_accuracy_amt, "\n")
 			training_accuracy_data.append([epoch, training_accuracy_amt])
-			
-	print("Training done!")
 
+			# including cost data
+			cost_data.append([epoch, cost])
+
+	print("Training done!")
+	print("Generating performance graphs...")
+	# plot and save pdf for the testing accuracy data
 	training_accuracy_df = pd.DataFrame(data=training_accuracy_data,columns=['epoch','accuracy'])
 	training_accuracy_figure = training_accuracy_df.plot(x='epoch', y='accuracy', kind='line', title='Memorization Accuracy').get_figure()
 	training_accuracy_figure.savefig('training_accuracy_graph.pdf')
 
+	# plot and save pdf for the training accuracy data
 	testing_accuracy_df = pd.DataFrame(data=testing_accuracy_data,columns=['epoch','accuracy'])
 	testing_accuracy_figure = testing_accuracy_df.plot(x='epoch', y='accuracy', kind='line', title='Generalization Accuracy').get_figure()
 	testing_accuracy_figure.savefig('testing_accuracy_graph.pdf')
+
+	# plot and save pdf for the cost data
+	cost_df = pd.DataFrame(data=cost_data,columns=['epoch','cost'])
+	cost_figure = cost_df.plot(x='epoch', y='cost', kind='line', title='Memorization Deficiency').get_figure()
+	cost_figure.savefig('cost_graph.pdf')
