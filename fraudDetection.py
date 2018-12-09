@@ -1,6 +1,9 @@
 """
 	@author: Andrew Kulpa
+
 	Based on the Kaggle Dataset for fraud detection using transaction data
+	The following a Tensorflow-based program using a multi-layered neural network
+	to classify fraudulent transactions.
 """
 import tensorflow as tf
 import numpy as np
@@ -106,16 +109,17 @@ false_negatives = 0
 true_positives = 0
 true_negatives = 0
 
+########################################################
+######              TRAIN AND TEST                ######
+########################################################
+
 with tf.Session() as sess:
 	print("Beginning training of the model...")
 	sess.run(init)
 
 	# training
 	for epoch in range(training_epochs):
-		# Backpropagation optimization and cost operation
 		_, cost = sess.run([train_op, loss_op], feed_dict={Input: trainX, Output: train_encoded_labels})
-		print(cost)
-		# Display results for each epoch cycle
 		if epoch % display_epoch == 0:
 			print("Epoch:", '%04d' % (epoch+1))
 			pred = tf.nn.softmax(logits)
@@ -123,7 +127,6 @@ with tf.Session() as sess:
 			tp = tf.metrics.true_positives(tf.argmax(Output, 1),tf.argmax(pred, 1))
 			fn = tf.metrics.false_negatives(tf.argmax(Output, 1),tf.argmax(pred, 1))
 			tn = tf.metrics.true_negatives(tf.argmax(Output, 1),tf.argmax(pred, 1))
-			# acc = tf.metrics.mean_per_class_accuracy(tf.argmax(Output, 1),tf.argmax(pred, 1), num_classes=2)
 			sess.run(tf.local_variables_initializer())
 			metrics = sess.run([fp, tp, fn, tn], feed_dict={Input: testX, Output: test_encoded_labels})
 			print("\tTesting Confusion Metrics:")
@@ -134,7 +137,6 @@ with tf.Session() as sess:
 
 			lr = sess.run(optimizer._lr) if useAdamOptimizer else sess.run(optimizer._learning_rate)
 			print("\ttraining_cost={:.9f}".format(cost), "learning_rate={:.5f}".format(lr))
-			# Apply softmax to logits
 			pred = tf.nn.softmax(logits)
 			correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Output, 1))
 			# Calculate the testing_accuracy of the model
@@ -151,7 +153,7 @@ with tf.Session() as sess:
 			print("\tTraining Data Accuracy:", training_accuracy_amt, "\n")
 			training_accuracy_data.append([epoch, training_accuracy_amt])
 
-			# including cost data
+			# Track cost data
 			cost_data.append([epoch, cost])
 
 	print("Training done!")
