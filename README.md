@@ -12,7 +12,8 @@ problem. Fraudulent transactions are relatively rare compared to normal
 transactions, though, so any given method used to classify these transactions 
 also keep in mind the inherent bias of the data. As such, this project 
 focuses on implementing an artificial neural network in Tensorflow using 
-weighted classes and other methods to improve performance and accuracy.
+weighted classes and other methods to improve performance and accuracy in
+classifying fraudulent credit card transactions.
 
 ## Data Set 
 This research was conducted based on the actual transaction data 
